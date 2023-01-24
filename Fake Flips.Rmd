@@ -1,0 +1,242 @@
+---
+title: "Coin Flipping MC Project"
+author: "Kaushik Kancharla"
+date: "1/9/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+```
+
+# Fake Coin Flip Detection Using Monte Carlo and Statistic Values
+
+We humans tend to believe we can do a decent job in creating a "random" sequence of events. However, given a large enough sample size of predictions, it can be shown that our thinking of randomness is quite flawed. In this project I will show how we can use statistical methods to gain a further understanding of a sequence of events and try to be able to predict whether the sequence of events is truly random. In particular, our sequence of events will be a fair coin flip. 
+
+To start, take a look at the following sequence of 200 coin flips:
+
+flips1 = "HTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHT"
+
+flips2 = "HHHTHTTTHHTHHTHHHTTTTHTHTHHTTHTHHHTHHTHTTTHTHHHTHTTTHTHTHHTHTHTTHTHHTHTHTTTHTHHHTHTHTTHTHTHHTHTHTHHHTHTTTHTHHTHTHTHHTTTHTHHTHHTTTTHTHTHHHTHTTHTHHTHTHTTHTHHTHTHHHTHHHTHTTTHTTHTTTHTHHHTHTHTTHTHHTHHTHTTT"
+
+flips3 = "HHTHTHTTTHTHHHTHHTTTHTHHTHTTTHTHTHHTHTHTTHTHHHHHHTTTHTHTHHTHTTTHTHHTHTHTTTHTHHHTTHTTTHTHTHHHHTHTTHHTTTTTHTHHHTHTHTTTTTHHHTHHTHHTHHHTTTTHTHTHHHTHHTTTTTHTHHHTHTHTHTTTHTHHHTHTHTHTTHTHHTHTHTHTTTTHTHHHTHTH"
+
+flips4 = "HTHHHHHHHTHTTHHTTHHHTHTHTTTHHTHHHTHHTTHTTTTTTTTTHTHHTTTTTHTHTHTHHTTHTTHTTTTTHHHTHTTTHTHTHHHTHTTTTHTHTHHTTHTHTTHHTHTHHHHTHTTHHTTHTTHTTHTHHHHHHTTTTTTHHHTTHTHHHHTTTHTTHHHTTHTHHTTTHHTHHTTTHTHHTHHHTHHTTHHH"
+
+flips5 = "HHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTT"
+
+flips6 = "TTHTTTHTTTTTTTHTHTHTHTTHTTHTHHTHHTTTHHTHTTTHTHHTHHHTHTTHHTHHTTHTHTTTTHTHTTTHHTTTTTTTTHTHHTTHTTTTTTHTHTHTHTTTHTTHHTTHTTTHHTTTHTTHTTTTHTTTTHHTTTHTHTHHHTTTTTTHTHHTTTTTTTTTTTTHHHTTTHHHTTTHTTTHTHTTHTTTTTHT"
+
+Try to guess which ones are fake and which ones are real. Some of these are quite obvious but others are not. What if I told you that only one of the above sequence of flips was truly random and the others were human generated? Lets try to find which one of the above flips is random.
+
+## Different Tests
+
+There are many different tests we can do to analyze how random a sequence is. For this project however, we will look at the following tests and combine them with Monte Carlo Simulation to see what the distributions of these tests looks like:
+
+  - Longest Run (of either heads or tails)
+  
+  - The number of changes from a run of heads to tails and vice versa
+  
+  - The Ratio of Heads to Tails
+  
+  - The Running Odds Ratio
+  
+```{r}
+#Longest Run Function
+longestRun = function(flips){
+  # the first flip is always a run of length 1.
+  MaxRunSoFar = 1
+  currentRun = 1
+  
+  for(i in 2:length(flips)){ # for every flip
+    # if it is equal to the last flip
+    if(flips[i]==flips[i-1]){
+      # then increase the length of the currentRun
+      currentRun = currentRun + 1
+      # and if the run is larger than the maxRunSoFar, redefine that.
+      if(currentRun>MaxRunSoFar) MaxRunSoFar = currentRun
+    }
+    # otherwise, 
+    if(flips[i]!=flips[i-1]){
+      # set the current run back to 1
+      currentRun=1
+  }
+  }
+  return(MaxRunSoFar)
+}
+
+#numbchanges function to see times H changes to T and vice-versa
+numbchanges = function(flips){
+  
+  Changes = 0
+  
+  for(i in 2:length(flips)){
+    if(flips[i]!=flips[i-1]){
+      Changes=Changes+1
+  }
+  }
+  return(Changes)
+}
+
+#HtoT function to see ratio of H to T
+HtoT = function(flips){
+  counts = table(flips)
+  return(counts["H"]/(200-counts["H"]))
+}
+
+#Running Odds function
+if(!"runner" %in% rownames(installed.packages())) install.packages("runner")
+ROf = function(flips){
+  tb = table(runner::runner(flips,k=2,f=paste,collapse="")[-1])
+  ratioFromTable = setNames((tb["HH"]/tb["HT"])/(tb["TH"]/tb["TT"]),"R")
+  return(ratioFromTable)
+  
+}
+
+
+split = function(str) strsplit(str, split="")[[1]]
+```
+
+## Monte Carlo Simulations on Tests
+To see how the test values are distributed in random runs, we will simulate 1000 random runs of 200 coin flips.
+
+```{r}
+#Longest Run
+simulate_S = function(){
+  S = sample(c("H","T"), 200,replace=T) %>% longestRun()
+  return(S)
+}
+r = 1000
+monte_carlo = data.frame(replicate = 1:r, 
+                         S = rep(NA,r), 
+                         S_in_A = rep(NA, r)) 
+
+for(i in 1:r){
+  monte_carlo$S[i] = simulate_S()
+}
+hist(monte_carlo$S, breaks = 20, main = "Longest Run MC, 1000 runs", xlab = "Longest Run Length")
+
+#----------------------------------------
+#Number of Changes
+simulate_nc = function(){
+  S = sample(c("H","T"), 200,replace=T) %>% numbchanges()
+  return(S)
+}
+monte_carlo2 = data.frame(replicate = 1:r, 
+                         S = rep(NA,r), 
+                         S_in_A = rep(NA, r)) 
+for(i in 1:r){
+  monte_carlo2$S[i] = simulate_nc()
+}
+hist(monte_carlo2$S, breaks = 20, main = "Number of Changes MC, 1000 runs", xlab = "Number of Changes")
+
+#----------------------------------------
+#Heads to Tails ratio
+simulate_ht = function(){
+  S = sample(c("H","T"), 200,replace=T) %>% HtoT()
+  return(S)
+}
+monte_carlo3 = data.frame(replicate = 1:r, 
+                         S = rep(NA,r), 
+                         S_in_A = rep(NA, r)) 
+for(i in 1:r){
+  monte_carlo3$S[i] = simulate_ht()
+}
+hist(monte_carlo3$S, breaks = 20,  main = "Heads to Tails Ratio, 1000 runs", xlab = "Heads to Tails")
+
+#----------------------------------------
+#Running Odds
+simulate_RO = function(){
+  S = sample(c("H","T"), 200,replace=T) %>% ROf()
+  return(S)
+}
+monte_carlo4 = data.frame(replicate = 1:r, 
+                         S = rep(NA,r), 
+                         S_in_A = rep(NA, r)) 
+for(i in 1:r){
+  monte_carlo4$S[i] = simulate_ht()
+}
+hist(monte_carlo4$S, breaks = 20, main = "Running Odds Ratio, 1000 runs", xlab = "Running Odds Ratio")
+
+```
+
+Knowing that the Number of Changes test is symmetric and should follow a normal distribution, we can approximate it as such. 
+
+As for the two Ratio tests and the Longest Run test, they follow a skewed distribution so we can approximately make a distribution function for them using the log norm distribution. 
+
+```{r}
+#Fit Estimations
+library(fitdistrplus)
+
+#Longest Run Log-Norm Distribution
+fitLR = fitdist(monte_carlo$S, distr = "lnorm", method = "mle")
+summary(fitLR)
+plot(fitLR)
+
+#Number of Changes Normal Distribution
+fitNC = fitdist(monte_carlo2$S, distr = "norm", method = "mle")
+summary(fitNC)
+plot(fitNC)
+
+#Heads to Tails Log-Norm Distribution
+fitHT = fitdist(monte_carlo3$S, distr = "lnorm", method = "mle")
+summary(fitHT)
+plot(fitHT)
+
+#Running Odds Ratio Log-Norm Distribution
+fitRoR = fitdist(monte_carlo4$S, distr = "lnorm", method = "mle")
+summary(fitRoR)
+plot(fitRoR)
+```
+
+Now that we have the respective probability functions of the above tests, let's make a function that will give a basic test statistic for how extreme a given value is.
+
+```{r}
+printStatistics = function(flips){
+  pval1 = plnorm(longestRun(split(flips)), fitLR$estimate[1], fitLR$estimate[2])
+  stat1 = min(pval1, 1-pval1)
+  
+  pval2 = pnorm(numbchanges(split(flips)), fitNC$estimate[1], fitNC$estimate[2])
+  stat2 = min(pval2, 1-pval2)
+  
+  pval3 = plnorm(HtoT(split(flips)), fitHT$estimate[1], fitHT$estimate[2])
+  stat3 = min(pval3, 1-pval3)
+  
+  pval4 = plnorm(ROf(split(flips)), fitRoR$estimate[1], fitRoR$estimate[2])
+  stat4 = min(pval4, 1-pval4)
+  
+  return(c(stat1, stat2, stat3, stat4))
+}
+#Flips
+flips1 = "HTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHT"
+
+flips2 = "HHHTHTTTHHTHHTHHHTTTTHTHTHHTTHTHHHTHHTHTTTHTHHHTHTTTHTHTHHTHTHTTHTHHTHTHTTTHTHHHTHTHTTHTHTHHTHTHTHHHTHTTTHTHHTHTHTHHTTTHTHHTHHTTTTHTHTHHHTHTTHTHHTHTHTTHTHHTHTHHHTHHHTHTTTHTTHTTTHTHHHTHTHTTHTHHTHHTHTTT"
+
+flips3 = "HHTHTHTTTHTHHHTHHTTTHTHHTHTTTHTHTHHTHTHTTHTHHHHHHTTTHTHTHHTHTTTHTHHTHTHTTTHTHHHTTHTTTHTHTHHHHTHTTHHTTTTTHTHHHTHTHTTTTTHHHTHHTHHTHHHTTTTHTHTHHHTHHTTTTTHTHHHTHTHTHTTTHTHHHTHTHTHTTHTHHTHTHTHTTTTHTHHHTHTH"
+
+flips4 = "HTHHHHHHHTHTTHHTTHHHTHTHTTTHHTHHHTHHTTHTTTTTTTTTHTHHTTTTTHTHTHTHHTTHTTHTTTTTHHHTHTTTHTHTHHHTHTTTTHTHTHHTTHTHTTHHTHTHHHHTHTTHHTTHTTHTTHTHHHHHHTTTTTTHHHTTHTHHHHTTTHTTHHHTTHTHHTTTHHTHHTTTHTHHTHHHTHHTTHHH"
+
+flips5 = "HHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTT"
+
+flips6 = "TTHTTTHTTTTTTTHTHTHTHTTHTTHTHHTHHTTTHHTHTTTHTHHTHHHTHTTHHTHHTTHTHTTTTHTHTTTHHTTTTTTTTHTHHTTHTTTTTTHTHTHTHTTTHTTHHTTHTTTHHTTTHTTHTTTTHTTTTHHTTTHTHTHHHTTTTTTHTHHTTTTTTTTTTTTHHHTTTHHHTTTHTTTHTHTTHTTTTTHT"
+
+```
+
+Now its time to use this function on our flips data! We can check if any of the statistics are significant by comparing it to significance level of 0.05. If any of the statistics are less than 0.05, we should be cautious in assuming the data is indeed random.
+
+```{r}
+printStatistics(flips1)<0.05
+printStatistics(flips2)<0.05
+printStatistics(flips3)<0.05
+printStatistics(flips4)<0.05
+printStatistics(flips5)<0.05
+printStatistics(flips6)<0.05
+```
+
+Looking at the above output, it is clear to see that only the 4th row has all falses which means that flips4 is the only truly random flip set and the others are most likely non-random (a human faked them).
+
+## Conclusion
+Thank you to Prof. Bi Cheng Wu from my Stat 340 class for the initial spark and base functions used in this project. In the future, if we can get a large number of samples of fake 200 flips, we could train a Machine Learning Model to classify whether a series of 200 flips is fake or not but for now, we will have to look at the statistic values and if they are significant.  
+
+
